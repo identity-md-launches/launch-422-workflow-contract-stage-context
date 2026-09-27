@@ -4,21 +4,16 @@ pragma solidity 0.8.26;
 /// @title LaunchToken — Workflow Demo (WFD)
 /// @notice Fixed-supply ERC-20 for the Agent Arcade launch.
 /// @dev The whole supply is minted once, to `msg.sender`, in the constructor. The deployer is the
-/// ProjectFactory, which splits the supply according to the pinned launch policy (liquidity, the
-/// protocol MerkleDistributor and contributor rewards). There is no owner, no mint, no burn, no pause,
-/// no blocklist, no fee and no upgrade path: what is deployed is all the token will ever do.
-///
-/// Supply note: the approved brief names a 1,000,000 WFD supply. The launch policy that admits a token
-/// requires exactly 1,000,000,000 tokens (10^27 minor units) minted to the factory, and the factory
-/// rejects any other supply. The policy figure is implemented here; the discrepancy is recorded in the
-/// README as a review finding rather than silently resolved.
+/// ProjectFactory. Services must use a compatible policy allocating 100% to enrolled Identity MD NFTs;
+/// liquidity and prizes require voluntary funding after allocation. See README for the service handoff.
+/// There is no owner, no mint, no burn, no pause, no blocklist, no fee and no upgrade path.
 contract LaunchToken {
     string public constant name = "Workflow Demo";
     string public constant symbol = "WFD";
     uint8 public constant decimals = 18;
 
-    /// @notice 1,000,000,000 WFD in 18-decimal minor units.
-    uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 1e18;
+    /// @notice 1,000,000 WFD in 18-decimal minor units, as approved in the workflow.
+    uint256 public constant TOTAL_SUPPLY = 1_000_000 * 1e18;
 
     uint256 public immutable totalSupply;
 

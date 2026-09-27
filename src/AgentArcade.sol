@@ -130,7 +130,7 @@ contract AgentArcade {
     uint256 public nextPackId;
     mapping(uint256 packId => address) private _ownerOf;
     mapping(address owner => uint256) private _balanceOf;
-    mapping(uint256 packId => address) public getApproved;
+    mapping(uint256 packId => address) private _getApproved;
     mapping(address owner => mapping(address operator => bool)) public isApprovedForAll;
     mapping(uint256 packId => uint256) public packEpoch;
     mapping(uint256 packId => uint256) public packBacking;
@@ -450,7 +450,7 @@ contract AgentArcade {
 
         _balanceOf[owner] -= 1;
         delete _ownerOf[packId];
-        delete getApproved[packId];
+        delete _getApproved[packId];
         delete packBacking[packId];
         mintedBacking -= backing;
         emit Transfer(owner, address(0), packId);
@@ -553,10 +553,15 @@ contract AgentArcade {
         return _balanceOf[owner];
     }
 
+    function getApproved(uint256 packId) external view returns (address) {
+        ownerOf(packId);
+        return _getApproved[packId];
+    }
+
     function approve(address spender, uint256 packId) external {
         address owner = ownerOf(packId);
         if (msg.sender != owner && !isApprovedForAll[owner][msg.sender]) revert NotAuthorized();
-        getApproved[packId] = spender;
+        _getApproved[packId] = spender;
         emit Approval(owner, spender, packId);
     }
 
@@ -569,13 +574,13 @@ contract AgentArcade {
         address owner = ownerOf(packId);
         if (from != owner) revert WrongFrom();
         if (to == address(0)) revert ZeroAddress();
-        if (msg.sender != owner && !isApprovedForAll[owner][msg.sender] && msg.sender != getApproved[packId]) {
+        if (msg.sender != owner && !isApprovedForAll[owner][msg.sender] && msg.sender != _getApproved[packId]) {
             revert NotAuthorized();
         }
         _balanceOf[from] -= 1;
         _balanceOf[to] += 1;
         _ownerOf[packId] = to;
-        delete getApproved[packId];
+        delete _getApproved[packId];
         emit Transfer(from, to, packId);
     }
 
@@ -601,8 +606,8 @@ contract AgentArcade {
 
     function tokenURI(uint256 packId) external view returns (string memory) {
         ownerOf(packId);
-        return string.concat(
-            'data:application/json;utf8,{"name":"Agent Arcade Pack #',
+        string memory json = string.concat(
+            '{"name":"Agent Arcade Pack #',
             _toString(packId),
             '","description":"Collectible pack fully backed by WFD. Redeem to receive the backing.","attributes":[{"trait_type":"epoch","value":',
             _toString(packEpoch[packId]),
@@ -610,11 +615,24 @@ contract AgentArcade {
             _toString(packBacking[packId]),
             '"}]}'
         );
+        return string.concat("data:application/json;utf8,", _percentEncode(bytes(json)));
     }
 
     // ---------------------------------------------------------------------------------------------
     // Internal
     // ---------------------------------------------------------------------------------------------
+
+    /// @dev Encode every payload byte so URI delimiters (including '#') remain JSON content.
+    function _percentEncode(bytes memory data) private pure returns (string memory) {
+        bytes16 hexDigits = "0123456789ABCDEF";
+        bytes memory encoded = new bytes(data.length * 3);
+        for (uint256 i; i < data.length; ++i) {
+            encoded[3 * i] = "%";
+            encoded[3 * i + 1] = hexDigits[uint8(data[i]) >> 4];
+            encoded[3 * i + 2] = hexDigits[uint8(data[i]) & 15];
+        }
+        return string(encoded);
+    }
 
     function _price(uint256 remainingBacking, uint256 remainingCount) private pure returns (uint256) {
         uint256 denominator = remainingCount * PAYOUT_BPS;

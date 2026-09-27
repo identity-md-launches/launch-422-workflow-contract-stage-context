@@ -27,30 +27,47 @@ Tests read no environment variables and pass in any order and in parallel.
 
 ## LaunchToken (WFD)
 
-Fixed-supply ERC-20, name `Workflow Demo`, symbol `WFD`, 18 decimals. The constructor takes no arguments
-and mints the entire supply to `msg.sender` (the factory). There is no owner, mint, burn, pause,
+Fixed-supply ERC-20, name `Workflow Demo`, symbol `WFD`, 18 decimals, exactly **1,000,000 WFD (10^24
+minor units)**. The constructor takes no arguments and mints the entire supply to `msg.sender` (the
+factory). There is no owner, mint, burn, pause,
 blocklist, fee, hook or upgrade path, and the runtime contains no `DELEGATECALL`, `CALLCODE` or
 `SELFDESTRUCT`.
 
-**Supply discrepancy (review finding).** The approved brief says "1,000,000 supply". The launch policy
-that admits a token requires exactly 1,000,000,000 tokens (10^27 minor units) minted to the factory, and
-the factory rejects any other supply (`SupplyMismatch`). The policy figure is implemented. If the
-sponsor wants the brief's figure, the policy must change first; the contract cannot satisfy both.
+**Required service policy.** The approved workflow controls supply and allocation. The previously
+documented default policy v5 (one billion tokens, 2% launch contributors, 8% recent accepted work and
+an initial liquidity carve-out) is incompatible and is not selected for this project. Services must
+select and verify an authorized policy with expected supply `1000000000000000000000000`, **100% NFT
+claims, 0% contributor rewards and 0% automatic liquidity allocation**. If the available factory/policy
+cannot support this, admission and deployment must wait for a compatible service configuration; do
+not increase supply or reduce claims to pass its checks. Policy selection and signed artifact linkage
+belong to services. No compatible signed policy or deployment is claimed by this source contribution.
 
-**Distribution is not in this repository.** The brief's allocation (100% equally per actively enrolled
-Identity MD NFT in collection `0x0000ec93127baa929e58e97dd0095a2bfb38ec1d`, snapshot at a finalized
-block, deterministic rounding, aggregation to owners, cross-chain contract-wallet resolution, immutable
-fixed-recipient Merkle claims without expiry) is executed by the protocol `MerkleDistributor` that the
-factory deploys, fed by the services' snapshot. The factory splits the supply per policy v5: liquidity,
-the claim tree, 2% launch contributors, 8% recent accepted work. Nothing in this repository can mint,
-so initial liquidity and the claim tree can only be funded from that one-time supply, and prizes can
-only be funded from WFD the sponsor already holds.
+**Distribution service handoff.** All 10^24 minor units must fund immutable, replay-protected,
+fixed-recipient Merkle claims without expiry for actively enrolled Identity MD NFTs in Ethereum
+collection `0x0000ec93127baa929e58e97dd0095a2bfb38ec1d`, including offline agents. Services must verify
+enrollment semantics and complete coverage, freeze timestamped evidence and ownership at a finalized
+block, and resolve cross-chain contract-wallet recipients before committing the tree. Never invent
+recipients. For `N > 0` eligible NFTs, sort by ascending token ID, allocate `floor(10^24 / N)` minor
+units per NFT, assign one extra unit to each of the first `10^24 mod N` NFTs, then aggregate by resolved
+owner. With no eligible NFTs or unresolved ownership, do not finalize the distribution. The claim sum
+must equal the supply; reserve balances must continue to cover every unclaimed allocation.
+
+For two eligible NFTs owned by Alice and offline Bob, each receives 500,000 WFD. Carol, a contributor
+without an eligible NFT, receives zero. A contributor who owns eligible NFTs receives only those NFTs'
+allocations. Liquidity and prizes are funded voluntarily from holders' received WFD after allocation,
+never from claim reserves, compulsory deductions or extra minting. This repository does not implement
+the snapshot, distributor or policy; services must verify their artifacts against this plan before
+admission. The separately owned manifest must describe these sources without selecting the rejected
+default economics.
 
 ## AgentArcade
 
 One sponsor funds finite, immutable epochs of 2–64 collectible packs, each fully backed by WFD held in
 the contract. A draw buys one uniformly random remaining pack of an epoch. The winner receives an
 ERC-721 pack and may keep it, transfer it, or redeem its backing to whoever owns it at that time.
+`tokenURI` returns a data URL with a percent-encoded JSON payload, preserving the `#` in each pack's
+name through URL handling ([RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-2.1)). `getApproved`
+reverts for unminted or redeemed packs, as required by [ERC-721](https://eips.ethereum.org/EIPS/eip-721).
 
 ### Roles and powers
 
@@ -161,9 +178,10 @@ contract, identifier `AgentArcade`, constructor arguments in this order:
 | 9 | bool | `nativePayment_` | `true` to pay VRF in Sepolia ETH, `false` for testnet LINK |
 
 The constructor is nonpayable, makes no external calls and does not touch WFD, so the factory's supply
-check is unaffected. The runtime is about 13.6 KB (EIP-170 limit 24,576) and contains no
-`DELEGATECALL`, `CALLCODE` or `SELFDESTRUCT`. Both protected floor tests (token and project) were run
-locally against this bytecode with representative environment values and pass.
+check is unaffected. Tests check the EIP-170 runtime limit (24,576 bytes) and absence of `DELEGATECALL`,
+`CALLCODE` and `SELFDESTRUCT`. The protected project floor takes its expected supply from service
+configuration; it must be `10^24` for this source. A floor configured for `10^27` would correctly reject
+this token and cannot authorize different economics.
 
 **Unresolved deployment choices** (the manifest assignment or operator must decide):
 
@@ -193,12 +211,14 @@ locally against this bytecode with representative environment values and pass.
 
 ## Market, liquidity and claims (context, not in this repository)
 
-The ProjectFactory creates the Uniswap v4 pool paired against native ETH (fee 3000, tick spacing 60,
-**no hook**, so there are no hook permissions to document) and seeds it with WFD only; the effective
-opening price comes from the pinned policy (20 ETH opening FDV under policy v5). There is no burn route
-in WFD or in the pool configuration. Liquidity, the Merkle claim tree and arcade prizes live in three
-separate contracts, and none of them can draw on another. Verified POOL4 source and Sepolia dependency
-addresses are the services' publication responsibility.
+The proposed pool pairs WFD against native ETH (fee 3000, tick spacing 60, **no hook**, so there are no
+hook permissions). Services must verify the POOL4 source and compatible Sepolia dependencies, including
+admin powers and burn routes, and select a compatible opening-price policy. The earlier policy v5
+20 ETH opening FDV and factory liquidity split are not selected deployment parameters. WFD has no burn
+route. Any pool seeding must use voluntary funding after the full NFT allocation; the factory must not
+seed liquidity from the claim supply. Claims, voluntary liquidity and arcade prizes must remain in
+separate contracts with no ability to spend one another's reserves. A factory that requires a launch
+supply carve-out for liquidity is incompatible with this workflow.
 
 ## Scope and honesty notes
 

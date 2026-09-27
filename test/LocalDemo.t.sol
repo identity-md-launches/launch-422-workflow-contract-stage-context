@@ -34,7 +34,7 @@ contract LocalDemoTest is Test {
     function test_deployWiresEverythingAndFundsEpoch() public {
         LocalDemo.Deployment memory d = demo.deploy(_config());
 
-        assertEq(d.token.totalSupply(), 1e27);
+        assertEq(d.token.totalSupply(), 1e24);
         assertEq(address(d.arcade.token()), address(d.token));
         assertEq(d.arcade.sponsor(), address(demo));
         assertEq(address(d.arcade.vrfCoordinator()), address(d.vrf));
@@ -42,7 +42,7 @@ contract LocalDemoTest is Test {
         assertEq(d.arcade.unsoldBacking(), 60e18);
         assertEq(d.token.balanceOf(address(d.arcade)), 60e18);
         assertEq(d.token.balanceOf(player), 1_000e18);
-        assertEq(d.token.balanceOf(address(demo)), 1e27 - 60e18 - 1_000e18);
+        assertEq(d.token.balanceOf(address(demo)), 1e24 - 60e18 - 1_000e18);
     }
 
     function test_demoRoundTripWithMockRandomness() public {

@@ -65,9 +65,9 @@ contract AgentArcadeTest is Test {
         );
 
         vm.startPrank(factory);
-        token.transfer(sponsor, 1_000_000e18);
-        token.transfer(alice, 1_000_000e18);
-        token.transfer(bob, 1_000_000e18);
+        token.transfer(sponsor, 100_000e18);
+        token.transfer(alice, 100_000e18);
+        token.transfer(bob, 100_000e18);
         vm.stopPrank();
 
         vm.prank(sponsor);
@@ -139,7 +139,7 @@ contract AgentArcadeTest is Test {
         vm.prank(factory);
         new AgentArcade(address(token), sponsor, feeRecipient, address(vrf), SUB_ID, KEY_HASH, CALLBACK_GAS, 3, false);
         assertEq(token.balanceOf(factory), before);
-        assertEq(token.totalSupply(), 1e27);
+        assertEq(token.totalSupply(), 1e24);
     }
 
     function test_constructorRejectsZeroAddresses() public {
@@ -767,7 +767,7 @@ contract AgentArcadeTest is Test {
         vm.prank(sponsor);
         uint256 got = arcade.withdrawPayments();
         assertEq(got, price - fee);
-        assertEq(token.balanceOf(sponsor), 1_000_000e18 - 1000e18 + price - fee);
+        assertEq(token.balanceOf(sponsor), 100_000e18 - 1000e18 + price - fee);
 
         vm.prank(feeRecipient);
         assertEq(arcade.withdrawPayments(), fee);
@@ -980,7 +980,7 @@ contract AgentArcadeTest is Test {
         assertApproxEqAbs(totalFees, paid * 500 / 10_000, draws);
         assertEq(
             token.balanceOf(alice) + token.balanceOf(bob) + token.balanceOf(sponsor) + totalFees,
-            3_000_000e18,
+            300_000e18,
             "tokens leaked"
         );
     }
@@ -1009,6 +1009,7 @@ contract AgentArcadeTest is Test {
         assertFalse(arcade.supportsInterface(0xffffffff));
         assertEq(arcade.name(), "Agent Arcade Pack");
         assertEq(arcade.symbol(), "PACK");
+        assertEq(arcade.getApproved(packId), address(0), "new pack has no approval");
 
         // Unauthorized transfer fails.
         vm.prank(bob);
@@ -1063,6 +1064,8 @@ contract AgentArcadeTest is Test {
         vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, 1));
         arcade.tokenURI(1);
         vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, 1));
+        arcade.getApproved(1);
+        vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, 1));
         arcade.approve(bob, 1);
         vm.expectRevert(AgentArcade.ZeroAddress.selector);
         arcade.balanceOf(address(0));
@@ -1071,11 +1074,81 @@ contract AgentArcadeTest is Test {
     function test_tokenURIEncodesEpochAndBacking() public {
         uint256 id = _createEpoch(_backings4());
         (, uint256 packId) = _play(alice, id, 3);
-        string memory uri = arcade.tokenURI(packId);
+        string memory metadata = _decodeMetadata(arcade.tokenURI(packId));
         assertEq(
-            uri,
-            'data:application/json;utf8,{"name":"Agent Arcade Pack #1","description":"Collectible pack fully backed by WFD. Redeem to receive the backing.","attributes":[{"trait_type":"epoch","value":1},{"trait_type":"backing","value":"500000000000000000000"}]}'
+            metadata,
+            '{"name":"Agent Arcade Pack #1","description":"Collectible pack fully backed by WFD. Redeem to receive the backing.","attributes":[{"trait_type":"epoch","value":1},{"trait_type":"backing","value":"500000000000000000000"}]}'
         );
+        assertEq(vm.parseJsonString(metadata, ".name"), "Agent Arcade Pack #1");
+        assertEq(vm.parseJsonUint(metadata, ".attributes[0].value"), id);
+        assertEq(vm.parseJsonString(metadata, ".attributes[1].value"), "500000000000000000000");
+    }
+
+    function test_sweptPackMetadataDecodesAndRevertsAfterRedemption() public {
+        _createEpoch(_backings4());
+        uint256[] memory backings = new uint256[](2);
+        backings[0] = 100e18;
+        backings[1] = 500e18;
+        uint256 id = _createEpoch(backings);
+        _play(alice, id, 1);
+        vm.prank(sponsor);
+        arcade.sweepEpoch(id);
+
+        string memory metadata = _decodeMetadata(arcade.tokenURI(2));
+        assertEq(vm.parseJsonString(metadata, ".name"), "Agent Arcade Pack #2");
+        assertEq(vm.parseJsonUint(metadata, ".attributes[0].value"), 2);
+        assertEq(vm.parseJsonString(metadata, ".attributes[1].value"), "100000000000000000000");
+        assertEq(arcade.getApproved(2), address(0));
+        vm.prank(sponsor);
+        arcade.redeem(2);
+        vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, 2));
+        arcade.tokenURI(2);
+        vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, 2));
+        arcade.getApproved(2);
+    }
+
+    function testFuzz_getApprovedRevertsForUnmintedPack(uint256 packId) public {
+        vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, packId));
+        arcade.getApproved(packId);
+    }
+
+    function test_getApprovedRevertsAfterApprovedPackIsRedeemed() public {
+        uint256 id = _createEpoch(_backings4());
+        (, uint256 packId) = _play(alice, id, 3);
+        vm.prank(alice);
+        arcade.approve(bob, packId);
+        assertEq(arcade.getApproved(packId), bob);
+        vm.prank(alice);
+        arcade.redeem(packId);
+        vm.expectRevert(abi.encodeWithSelector(AgentArcade.NonexistentPack.selector, packId));
+        arcade.getApproved(packId);
+    }
+
+    /// @dev Decode the data URL before inspecting its JSON, rejecting raw URI delimiters.
+    function _decodeMetadata(string memory uri) internal pure returns (string memory) {
+        bytes memory encoded = bytes(uri);
+        bytes memory prefix = bytes("data:application/json;utf8,");
+        assertGe(encoded.length, prefix.length);
+        for (uint256 i; i < prefix.length; ++i) {
+            assertEq(encoded[i], prefix[i]);
+        }
+        bytes memory decoded = new bytes(encoded.length - prefix.length);
+        uint256 length;
+        for (uint256 i = prefix.length; i < encoded.length; ++i) {
+            assertTrue(encoded[i] != "#" && encoded[i] != "?", "raw URI delimiter in JSON payload");
+            if (encoded[i] == "%") {
+                assertLt(i + 2, encoded.length, "incomplete percent escape");
+                bytes memory octet = vm.parseBytes(string(abi.encodePacked("0x", encoded[i + 1], encoded[i + 2])));
+                decoded[length++] = octet[0];
+                i += 2;
+            } else {
+                decoded[length++] = encoded[i];
+            }
+        }
+        assembly ("memory-safe") {
+            mstore(decoded, length)
+        }
+        return string(decoded);
     }
 
     function test_approveByOperatorAndNotByStranger() public {

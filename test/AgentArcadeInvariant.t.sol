@@ -167,12 +167,12 @@ contract AgentArcadeInvariantTest is Test {
         );
         handler = new ArcadeHandler(token, arcade, vrf, sponsor, feeRecipient);
 
-        token.transfer(sponsor, 100_000_000e18);
+        token.transfer(sponsor, 100_000e18);
         vm.prank(sponsor);
         token.approve(address(arcade), type(uint256).max);
         for (uint256 i; i < 3; ++i) {
             address p = handler.players(i);
-            token.transfer(p, 100_000_000e18);
+            token.transfer(p, 100_000e18);
             vm.prank(p);
             token.approve(address(arcade), type(uint256).max);
         }

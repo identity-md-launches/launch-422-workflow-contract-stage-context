@@ -10,7 +10,7 @@ contract LaunchTokenTest is Test {
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
 
-    uint256 constant SUPPLY = 1_000_000_000 * 1e18;
+    uint256 constant SUPPLY = 1_000_000 * 1e18;
 
     function setUp() public {
         vm.prank(deployer);
@@ -25,7 +25,7 @@ contract LaunchTokenTest is Test {
 
     function test_fixedSupplyMintedToDeployer() public view {
         assertEq(token.totalSupply(), SUPPLY);
-        assertEq(token.totalSupply(), 1e27);
+        assertEq(token.totalSupply(), 1e24);
         assertEq(token.balanceOf(deployer), SUPPLY);
         assertEq(token.TOTAL_SUPPLY(), SUPPLY);
     }
