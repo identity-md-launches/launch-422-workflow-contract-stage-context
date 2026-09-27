@@ -1,0 +1,29 @@
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+ffi = false
+fs_permissions = []
+verbosity = 0
+
+[fuzz]
+runs = 256
+
+[invariant]
+runs = 64
+depth = 48
+fail_on_revert = false
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
+ignore = ["lib/**/*"]
