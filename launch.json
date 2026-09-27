@@ -1,0 +1,32 @@
+{
+  "kind": "evm_project",
+  "token": {
+    "contract": "LaunchToken",
+    "name": "Workflow Demo",
+    "symbol": "WFD",
+    "decimals": 18
+  },
+  "contracts": [
+    {
+      "contract": "AgentArcade",
+      "constructorArgs": [
+        "$token",
+        "$owner",
+        "$owner",
+        "0x9ddfaca8183c41ad55329bdeed9f6a8d53168b1b",
+        "7777",
+        "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae",
+        "150000",
+        "3",
+        "1"
+      ]
+    }
+  ],
+  "pool": {
+    "pairedCurrency": "0x0000000000000000000000000000000000000000",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "initialPrice": "79228162514264337593543950336"
+  },
+  "notes": "Predeployment review candidate for the accepted Sepolia prototype; not deployment approval. LaunchToken in src/LaunchToken.sol has no constructor arguments. AgentArcade in src/AgentArcade.sol is the sole application contract. Its sponsor and fee recipient both resolve exclusively through policy $owner. No initialization calls are required. VRF configuration uses the Sepolia Chainlink VRF v2.5 coordinator and 500 gwei key hash documented at https://docs.chain.link/vrf/v2-5/supported-networks#ethereum-sepolia-testnet, with 150000 callback gas, 3 confirmations and native ETH billing (ABI bool 1). BLOCKING CONSTRUCTOR FINDING: subscription ID 7777 is only the nonzero fixture from test/AgentArcade.t.sol; no authorized operational subscription ID was supplied. It is not evidence that subscription 7777 exists or belongs to this project. Replace it with the authorized Sepolia subscription ID and independently review the resulting immutable constructor inputs before attestation or deployment. The subscription must be funded and the arcade registered as a consumer before draws; accepted draws have no cancellation or reroll and provider failure can stall the game. BLOCKING REQUIREMENTS FINDINGS: the accepted token mints 1,000,000,000 WFD, while the approved brief requires 1,000,000. The documented protocol liquidity/contributor splits conflict with the brief's 100% allocation equally per actively enrolled Identity MD NFT. Enrollment coverage, finalized ownership evidence, deterministic rounding and cross-chain contract-wallet recipients remain unverified. The pool configuration is native ETH, fee 3000, tick spacing 60, no hook; initialPrice is decimal sqrtPriceX96 (2^96), with effective policy pricing handled by services. No verified POOL4 implementation or compatible deployment evidence is present in the accepted tree; this pool description does not establish compliance with that requirement. The factory supplies the LP and MerkleDistributor, so neither is an application entry. Liquidity and arcade prizes require voluntary funding separate from claim reserves; this manifest does not authorize reserve diversion or additional funding. Policy, signed artifact linkage, source publication, attestation, admission, deployment and frontend publication belong to subsequent services; no successful service outcome is asserted here. These notes record unresolved findings and do not override constructor values, policy or authorization."
+}
